@@ -8,6 +8,17 @@
 -define(PAYLOAD_HASH, <<"UNSIGNED-PAYLOAD">>).
 -define(BUCKET_URL(Bucket), <<Bucket/binary, ".s3.amazonaws.com">>).
 
+-ifdef(OTP_RELEASE).
+    -if(?OTP_RELEASE >= 23).
+        -define(HMAC(SigKey, Payload),crypto:mac(hamc, sha256, SigKey, Payload)).
+    -else.
+        -define(HMAC(SigKey, Payload),crypto:hmac(sha256, SigKey, Payload)).
+    -endif.
+-else.
+    -define(HMAC(SigKey, Payload),crypto:hmac(sha256, SigKey, Payload)).
+-endif.
+
+
 %%====================================================================
 %% @doc Header Generator
 %%====================================================================
@@ -50,7 +61,7 @@ generate_signature(HttpVerb, CanonicalUri, CanonicalQueryString, Headers, AwsReg
   CanonicalRequest = generate_canonical_request(HttpVerb, CanonicalUri, CanonicalQueryString, Headers),
   StringToSign = generate_string_to_sign(Date, Timestamp, AwsRegion, Scope, CanonicalRequest),
   SigningKey = generate_signing_key(Date, AwsRegion, Scope),
-  erlaws3_utils:sha256_to_hex(crypto:mac(hmac, sha256, SigningKey, StringToSign)).
+  erlaws3_utils:sha256_to_hex(?HMAC(SigningKey, StringToSign)).
 
 %%====================================================================
 %% @doc Canonical Request
@@ -94,7 +105,7 @@ generate_string_to_sign(Date, Timestamp, AwsRegion, Scope, CanonicalRequest) ->
 %%====================================================================
 generate_signing_key(Date, AwsRegion, Scope) ->
   SecretKey = application:get_env(erlaws3, secret_key, <<>>),
-  DateKey = crypto:mac(hmac, sha256, <<"AWS4", SecretKey/binary>>, Date),
-  RegionKey = crypto:mac(hmac, sha256, DateKey, AwsRegion),
-  ScopeKey = crypto:mac(hmac, sha256, RegionKey, Scope),
-  crypto:mac(hmac, sha256, ScopeKey, <<"aws4_request">>).
+  DateKey = ?HMAC(<<"AWS4", SecretKey/binary>>, Date),
+  RegionKey = ?HMAC(DateKey, AwsRegion),
+  ScopeKey = ?HMAC(RegionKey, Scope),
+  ?HMAC(ScopeKey, <<"aws4_request">>).
