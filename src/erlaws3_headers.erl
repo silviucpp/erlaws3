@@ -10,7 +10,7 @@
 
 -ifdef(OTP_RELEASE).
     -if(?OTP_RELEASE >= 23).
-        -define(HMAC(SigKey, Payload),crypto:mac(hamc, sha256, SigKey, Payload)).
+        -define(HMAC(SigKey, Payload),crypto:mac(hmac, sha256, SigKey, Payload)).
     -else.
         -define(HMAC(SigKey, Payload),crypto:hmac(sha256, SigKey, Payload)).
     -endif.
